@@ -1,9 +1,8 @@
 import { useAuth } from "@/lib/auth-context";
-import { useRouter } from 'expo-router';
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { Button, Text, TextInput, useTheme } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AuthScreen() {
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
@@ -31,32 +30,31 @@ export default function AuthScreen() {
     setError(null);
 
     if (isSignUp) {
-     const error = await signUp(email, password);
-     if(error){
-      setError(error)
-      return
-     }
-     router.replace("/(tabs)");
-   } else {
-     const error = await signIn(email, password);
-     if(error){
-       setError(error)
-       return
-     }
-     router.replace("/(tabs)");
-   }
- };
+      const error = await signUp(email, password);
+      if (error) {
+        setError(error);
+        return;
+      }
+      router.replace("/(tabs)");
+    } else {
+      const error = await signIn(email, password);
+      if (error) {
+        setError(error);
+        return;
+      }
+      router.replace("/(tabs)");
+    }
+  };
 
   const handleSwitchMode = () => {
     setIsSignUp((prev) => !prev);
   };
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <View style={styles.content}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
+      <View style={styles.content}>
           <Text style={styles.title} variant="headlineMedium">
             {isSignUp ? "Create Account" : "Welcome Back"}{" "}
           </Text>
@@ -72,15 +70,15 @@ export default function AuthScreen() {
             onChangeText={setEmail}
           />
 
-        <TextInput
-          label="Password"
-          autoCapitalize="none"
-          mode="outlined"
-          value={password}
-          secureTextEntry
-          style={styles.input}
-          onChangeText={setPassword}
-        />
+          <TextInput
+            label="Password"
+            autoCapitalize="none"
+            mode="outlined"
+            value={password}
+            secureTextEntry
+            style={styles.input}
+            onChangeText={setPassword}
+          />
 
           {error && (
             <Text style={{ color: theme.colors.error }}> {error} </Text>
@@ -99,9 +97,8 @@ export default function AuthScreen() {
               ? "Already have an account? Sign in"
               : "Don't have an account? Sign up"}
           </Button>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

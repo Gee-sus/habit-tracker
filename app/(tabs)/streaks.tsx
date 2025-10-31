@@ -1,10 +1,10 @@
 import {View, Text} from 'react-native'
 
 
-export default function LoginScreen() {
+export default function SteaksScreen() {
     return <view>
         <Text>
-            This is login screen
+            This is Streaks Screen.
         </Text>
     </view>
 }
