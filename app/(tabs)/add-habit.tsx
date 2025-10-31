@@ -23,7 +23,7 @@ export default function AddHabitScreen() {
     if(!user) return;
 
     try {
-      await databases.createDocument(
+      const newHabit = await databases.createDocument(
         DATABASE_ID, 
         HABITS_COLLECTION_ID, 
         ID.unique(), // Use unique ID instead of user.$id
@@ -38,7 +38,12 @@ export default function AddHabitScreen() {
         }
       );
 
-      router.back();
+      console.log('✅ Habit created:', newHabit.$id);
+      
+      // Give realtime subscription time to catch the event
+      setTimeout(() => {
+        router.back();
+      }, 300);
     } catch(error) {
       if(error instanceof Error) {
         setError(error.message);
