@@ -2,99 +2,98 @@ import { client, DATABASE_ID, databases, HABITS_COLLECTION_ID, RealtimeResponse 
 import { useAuth } from "@/lib/auth-context";
 import { Habit } from "@/types/database.type";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
-import { Dimensions, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { Query } from "react-native-appwrite";
 import { Swipeable } from "react-native-gesture-handler";
 import { Button, Text } from "react-native-paper";
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
 export default function Index() {
   const { signOut, user } = useAuth();
   const [habits, setHabits] = useState<Habit[]>();
-  const [refreshing, setRefreshing] = useState(false);
+  
+  const swipeableRefs = useRef<{[key: string]: Swipeable | null}>({});
 
-  useEffect(() => {
-    if (!user?.$id) return; // Only subscribe if user exists
-    
-    const fetchHabits = async () => {
-      try {
-        const response = await databases.listDocuments(
-          DATABASE_ID,
-          HABITS_COLLECTION_ID,
-          [Query.equal("user_id", user.$id)]
-        );
-        setHabits(response.documents as unknown as Habit[]);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
-    fetchHabits();
-
-    const habitsSubscription = client.subscribe(
-      `databases.${DATABASE_ID}.collections.${HABITS_COLLECTION_ID}.documents`,
-      (response: RealtimeResponse) => {
-        console.log('Realtime event received:', response.events); // Debug log
-        
-        // Check for any document event (more flexible matching)
-        const hasDocumentEvent = response.events.some(event => 
-          event.includes('.documents.') && (
-            event.includes('.create') || 
-            event.includes('.update') || 
-            event.includes('.delete')
-          )
-        );
-        
-        if (hasDocumentEvent) {
-          console.log('Refreshing habits...'); // Debug log
-          fetchHabits();
-        }
-      }
-    );
-    
-    return () => {
-      habitsSubscription();
-    };
-  }, [user?.$id]); // Only depend on user.$id
-
-  const handleSignOut = async () => {
-    await signOut();
-  };
-
-  const onRefresh = async () => {
+  const fetchHabits = useCallback(async () => {
     if (!user?.$id) return;
-    
-    setRefreshing(true);
+
     try {
       const response = await databases.listDocuments(
         DATABASE_ID,
         HABITS_COLLECTION_ID,
         [Query.equal("user_id", user.$id)]
       );
+
       setHabits(response.documents as unknown as Habit[]);
-      console.log('✅ Refreshed habits:', response.documents.length);
     } catch (error) {
-      console.error("Error refreshing habits:", error);
-    } finally {
-      setRefreshing(false);
+      console.error(error);
     }
+  }, [user?.$id]);
+
+  useEffect(() => {
+    if (user) {
+      const habitsChannel = `databases.${DATABASE_ID}.collections.${HABITS_COLLECTION_ID}.documents`;
+      const habitsSubscription = client.subscribe(
+        habitsChannel,
+        (response: RealtimeResponse) => {
+          if (
+            response.events.includes(
+              "databases.*.collections.*.documents.*.create"
+            )
+          ) {
+            fetchHabits();
+          } else if (
+            response.events.includes(
+              "databases.*.collections.*.documents.*.update"
+            )
+          ) {
+            fetchHabits();
+          } else if (
+            response.events.includes(
+              "databases.*.collections.*.documents.*.delete"
+            )
+          ) {
+            fetchHabits();
+          }
+        }
+      );
+
+      fetchHabits();
+   
+
+      return () => {
+        habitsSubscription();
+        
+      };
+    }
+  }, [user]);
+  
+  const handleSignOut = async () => {
+    await signOut();
   };
 
-  const handleDeleteHabit = async (habitId: string) => {
-    // Delete immediately - the realtime subscription will handle removal
+  const handleDeleteHabit = async (id: string) => {
     try {
-      await databases.deleteDocument(
-        DATABASE_ID,
-        HABITS_COLLECTION_ID,
-        habitId
-      );
-      // List will auto-refresh via realtime subscription
-    } catch (error) {
-      console.error("Error deleting habit:", error);
+      await databases.deleteDocument(DATABASE_ID, HABITS_COLLECTION_ID, id);
+      await fetchHabits();
+    } catch(error) {
+      console.error(error);
+
     }
-  };
+
+  }
+
+  const renderRightAction = () => (
+    <View style={styles.swipeActionRight}>
+      <MaterialCommunityIcons name="check-circle-outline" size={32} color="#fff" />
+    </View>
+  );
+
+  const renderLeftAction = () => (
+    <View style={styles.swipeActionLeft}>
+      <MaterialCommunityIcons name="trash-can-outline" size={32} color="#fff" />
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -109,51 +108,49 @@ export default function Index() {
           <Text style={styles.emptyText}>No Habits yet. Add your first Habit!</Text>
         </View>
       ) : (
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.habitsList}
           showsVerticalScrollIndicator={true}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#6200ee']}
-              tintColor="#6200ee"
-            />
-          }
         >
-          {habits?.map((habit, index) => {
-            return (
-              <Swipeable
-                key={habit.$id || index}
-                onSwipeableLeftOpen={() => {
-                  console.log('Swiped right, deleting:', habit.$id);
-                  handleDeleteHabit(habit.$id);
-                }}
-                friction={1.5}
-                leftThreshold={SCREEN_WIDTH * 0.3}
-                overshootLeft={true}
-              >
-                <View style={styles.habitCard}>
-                  <View style={styles.habitHeader}>
-                    <Text style={styles.habitTitle}>{habit.title}</Text>
-                    <Text style={styles.habitFrequency}>
-                      {habit.frequency.charAt(0).toUpperCase() + habit.frequency.slice(1)}
-                    </Text>
-                  </View>
-                  <Text style={styles.habitDescription}>{habit.description}</Text>
-                  <View style={styles.streakContainer}>
-                    <MaterialCommunityIcons
-                      name="fire"
-                      size={20}
-                      color={"#ff9800"}
-                    />
-                    <Text style={styles.streakText}>{habit.streak_count} day Streak</Text>
-                  </View>
+          {habits?.map((habit, index) => (
+            <Swipeable
+              key={habit.$id || index}
+              ref={(ref) => {
+                if (ref) swipeableRefs.current[habit.$id] = ref;
+              }}
+              overshootLeft={false}
+              overshootRight={false}
+              renderRightActions={renderRightAction}
+              renderLeftActions={renderLeftAction}
+              onSwipeableOpen={(direction) => {
+                if (direction === "left") {
+                  handleDeleteHabit(habit.$id)
+
+                  swipeableRefs.current[habit.$id]?.close()
+                }
+
+              } }
+            >
+              <View style={styles.habitCard}>
+                <View style={styles.habitHeader}>
+                  <Text style={styles.habitTitle}>{habit.title}</Text>
+                  <Text style={styles.habitFrequency}>
+                    {habit.frequency.charAt(0).toUpperCase() + habit.frequency.slice(1)}
+                  </Text>
                 </View>
-              </Swipeable>
-            );
-          })}
+                <Text style={styles.habitDescription}>{habit.description}</Text>
+                <View style={styles.streakContainer}>
+                  <MaterialCommunityIcons
+                    name="fire"
+                    size={20}
+                    color={"#ff9800"}
+                  />
+                  <Text style={styles.streakText}>{habit.streak_count} day Streak</Text>
+                </View>
+              </View>
+            </Swipeable>
+          ))}
         </ScrollView>
       )}
     </View>
@@ -170,8 +167,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    margin: 15,
     paddingHorizontal: 20,
     paddingVertical: 16,
+    borderRadius: 20,
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
     borderBottomColor: "#e9ecef",
@@ -199,7 +198,7 @@ const styles = StyleSheet.create({
   habitsList: {
     padding: 16,
     gap: 16,
-    paddingBottom: 20, // Add some bottom padding for last item
+    paddingBottom: 20,
   },
   habitCard: {
     backgroundColor: "#ffffff",
@@ -281,11 +280,25 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     letterSpacing: -0.2,
   },
-  title: {
-    fontSize: 18,
-    marginBottom: 10,
+  swipeActionLeft: {
+    justifyContent: "center",
+    alignItems: "flex-start",
+    flex: 1,
+    backgroundColor: "#f44336",
+    borderRadius: 18,
+    marginBottom: 18,
+    marginTop: 2,
+    paddingLeft: 16,
   },
-  button: {
-    marginTop: 20,
+  swipeActionRight: {
+    justifyContent: "center",
+    alignItems: "flex-end",
+    flex: 1,
+    backgroundColor: "#4caf50",
+    borderRadius: 18,
+    marginBottom: 18,
+    marginTop: 2,
+    paddingRight: 16,
   },
 });
+

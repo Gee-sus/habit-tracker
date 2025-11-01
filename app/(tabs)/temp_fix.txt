@@ -1,0 +1,47 @@
+I can see the file has many syntax errors. The user is actively editing it and I can't apply my changes properly. Let me provide the fixed code snippet for the user to manually copy:
+
+FIX FOR LINES 84-97:
+const renderRightAction = () => (
+  <View style={{ backgroundColor: '#4caf50', justifyContent: 'center', alignItems: 'center', width: 100 }}>
+    <MaterialCommunityIcons name="check-circle-outline" size={32} color="#fff" />
+  </View>
+);
+
+const renderLeftAction = () => (
+  <View style={{ backgroundColor: '#f44336', justifyContent: 'center', alignItems: 'center', width: 100 }}>
+    <MaterialCommunityIcons name="trash-can-outline" size={32} color="#fff" />
+  </View>
+);
+
+FIX FOR LINES 125-136:
+{habits?.map((habit, index) => (
+  <Swipeable
+    key={habit.$id || index}
+    ref={(ref) => {
+      if (ref) swipeableRefs.current[habit.$id] = ref;
+    }}
+    overshootLeft={false}
+    overshootRight={false}
+    renderRightActions={renderRightAction}
+    renderLeftActions={renderLeftAction}
+  >
+    <View style={styles.habitCard}>
+      <View style={styles.habitHeader}>
+        <Text style={styles.habitTitle}>{habit.title}</Text>
+        <Text style={styles.habitFrequency}>
+          {habit.frequency.charAt(0).toUpperCase() + habit.frequency.slice(1)}
+        </Text>
+      </View>
+      <Text style={styles.habitDescription}>{habit.description}</Text>
+      <View style={styles.streakContainer}>
+        <MaterialCommunityIcons
+          name="fire"
+          size={20}
+          color={"#ff9800"}
+        />
+        <Text style={styles.streakText}>{habit.streak_count} day Streak</Text>
+      </View>
+    </View>
+  </Swipeable>
+))}
+
