@@ -1,4 +1,4 @@
-import { COMPLETIONS_COLLECTION_ID, DATABASE_ID, databases, HABITS_COLLECTION_ID } from '@/lib/appwrite';
+import { client, COMPLETIONS_COLLECTION_ID, DATABASE_ID, databases, HABITS_COLLECTION_ID, RealtimeResponse } from '@/lib/appwrite';
 import { useAuth } from '@/lib/auth-context';
 import { Habit, HabitCompletion } from '@/types/database.type';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -51,8 +51,46 @@ export default function SteaksScreen() {
 
   useEffect(() => {
     if (user) {
+      // Add real-time subscription for completions
+      const completionsChannel = `databases.${DATABASE_ID}.collections.${COMPLETIONS_COLLECTION_ID}.documents`;
+      const completionsSubscription = client.subscribe(
+        completionsChannel,
+        (response: RealtimeResponse) => {
+          if (
+            response.events.includes(
+              "databases.*.collections.*.documents.*.create"
+            )
+          ) {
+            fetchCompletions(); // Refresh completions when new one is created
+          }
+        }
+      );
+
+      // Add real-time subscription for habits (in case streak_count changes)
+      const habitsChannel = `databases.${DATABASE_ID}.collections.${HABITS_COLLECTION_ID}.documents`;
+      const habitsSubscription = client.subscribe(
+        habitsChannel,
+        (response: RealtimeResponse) => {
+          if (
+            response.events.includes(
+              "databases.*.collections.*.documents.*.update"
+            )
+          ) {
+            fetchHabits(); // Refresh habits when updated
+            fetchCompletions(); // Also refresh completions to recalculate streaks
+          }
+        }
+      );
+
+      // Initial fetch
       fetchHabits();
       fetchCompletions();
+
+      // Cleanup subscriptions
+      return () => {
+        completionsSubscription();
+        habitsSubscription();
+      };
     }
   }, [user, fetchHabits, fetchCompletions]);
 
